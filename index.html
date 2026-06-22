@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PromptCraft // Design Core</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #fafafa; color: #111; max-width: 600px; margin: 60px auto; padding: 20px; }
+        .prompt-card { background: #fff; border: 1px solid #eaeaea; padding: 16px; margin: 12px 0; border-radius: 8px; position: relative; font-size: 14px; line-height: 1.5; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .copy-btn { position: absolute; right: 12px; top: 12px; background: #eee; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; transition: background 0.2s; }
+        .copy-btn:hover { background: #ddd; }
+        #loading, #error-box { display: none; margin-top: 16px; text-align: center; border-radius: 6px; padding: 12px;}
+        #error-box { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; text-align: left; font-family: monospace; font-size: 12px; overflow-x: auto;}
+    </style>
+</head>
+<body>
+
+    <h1 class="text-2xl font-bold mb-2">Automated Design Prompt Engine</h1>
+    <p class="text-gray-600 mb-6">Enter a core business concept to generate 5 optimized architectural design prompts.</p>
+    
+    <input type="text" id="conceptInput" placeholder="e.g., Artisan Coffee Shop, Cyberpunk Sneaker Brand" class="w-full p-3 mb-4 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-black">
+    <button onclick="generatePrompts()" class="w-full bg-black text-white p-3 rounded-md font-semibold hover:bg-gray-800 transition-colors">Generate Blueprints</button>
+
+    <div id="loading" class="text-gray-500 animate-pulse">Consulting design engine matrix...</div>
+    <div id="error-box"></div>
+    <div id="resultsLayout" class="mt-4"></div>
+
+    <script>
+        async function generatePrompts() {
+            const concept = document.getElementById('conceptInput').value;
+            const loading = document.getElementById('loading');
+            const resultsLayout = document.getElementById('resultsLayout');
+            const errorBox = document.getElementById('error-box');
+            
+            if (!concept) return alert('Please input a concept first.');
+            
+            loading.style.display = 'block';
+            resultsLayout.innerHTML = '';
+            errorBox.style.display = 'none';
+
+            try {
+                // Point to the serverless function
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ concept: concept })
+                });
+                
+                const data = await response.json();
+                loading.style.display = 'none';
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Unknown Server Error');
+                }
+
+                // Parse the string response into an array
+                let prompts = [];
+                try {
+                     // Attempt to clean the response if it includes markdown formatting
+                     let cleanData = data.response.replace(/```json/g, '').replace(/```/g, '');
+                     prompts = JSON.parse(cleanData);
+                } catch(e) {
+                     throw new Error("AI returned invalid data format: " + data.response);
+                }
+
+                prompts.forEach((promptText) => {
+                    const card = document.createElement('div');
+                    card.className = 'prompt-card';
+                    // Escape single quotes for the inline onclick handler
+                    const escapedText = promptText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    card.innerHTML = `
+                        <p>${promptText}</p>
+                        <button class="copy-btn" onclick="navigator.clipboard.writeText('${escapedText}'); alert('Copied to clipboard!');">Copy</button>
+                    `;
+                    resultsLayout.appendChild(card);
+                });
+            } catch (err) {
+                loading.style.display = 'none';
+                errorBox.style.display = 'block';
+                errorBox.innerText = 'Execution Error:\n' + err.message;
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -21,13 +21,13 @@ class handler(http.server.BaseHTTPRequestHandler):
                 "Format your response STRICTLY as a raw JSON array of strings containing exactly 5 items, with NO markdown block formatting."
             )
 
-            # 3. Get the API key and remove any accidental blank spaces
+            # 3. Get the API key safely
             api_key = os.environ.get("GEMINI_API_KEY", "").strip()
             
             if not api_key:
                 raise ValueError("The API Key is missing from Vercel Environment Variables.")
 
-            # 4. Prepare payload for Gemini API using the correct, updated model name
+            # 4. USING THE LATEST MODEL TAG TO BYPASS THE ERROR
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
             
             payload = {
@@ -39,10 +39,7 @@ class handler(http.server.BaseHTTPRequestHandler):
             req = urllib.request.Request(
                 url, 
                 data=json.dumps(payload).encode('utf-8'), 
-                headers={
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'Vercel-Serverless-App'
-                }
+                headers={'Content-Type': 'application/json'}
             )
             
             # 5. Send request to Google
@@ -50,21 +47,20 @@ class handler(http.server.BaseHTTPRequestHandler):
                 result = json.loads(response.read().decode('utf-8'))
                 ai_response_text = result['candidates'][0]['content']['parts'][0]['text']
                 
-                # Send success response to frontend
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*') 
                 self.end_headers()
                 self.wfile.write(json.dumps({"response": ai_response_text}).encode('utf-8'))
                 
-        # 6. EXTREME ERROR CATCHING: Show exact Google error
+        # 6. Catch and print exact errors
         except urllib.error.HTTPError as e:
             error_body = e.read().decode('utf-8')
             self.send_response(500)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(json.dumps({"error": f"Google API rejected the request. Details: {error_body}"}).encode('utf-8'))
+            self.wfile.write(json.dumps({"error": f"Google API Error: {error_body}"}).encode('utf-8'))
             
         except Exception as e:
             self.send_response(500)
